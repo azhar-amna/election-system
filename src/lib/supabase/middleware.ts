@@ -4,6 +4,7 @@ import type { Database } from "@/types/database";
 
 const PROTECTED_VOTER_ROUTES = ["/dashboard", "/ballot"];
 const PROTECTED_ADMIN_ROUTES = ["/admin"];
+const AUTH_ROUTES = ["/login", "/register"];
 
 function matchesRoute(pathname: string, prefixes: string[]): boolean {
   return prefixes.some(
@@ -76,6 +77,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAdminRoute = matchesRoute(pathname, PROTECTED_ADMIN_ROUTES);
   const isVoterRoute = matchesRoute(pathname, PROTECTED_VOTER_ROUTES);
+  const isAuthRoute = matchesRoute(pathname, AUTH_ROUTES);
   const isAdmin = user?.app_metadata?.role === "admin";
 
   // 1. Unauthenticated visitors attempting to access protected routes -> /login
@@ -100,6 +102,14 @@ export async function updateSession(request: NextRequest) {
     adminUrl.pathname = "/admin";
     adminUrl.search = "";
     return createRedirectWithSessionCookies(adminUrl, supabaseResponse);
+  }
+
+  // 4. Authenticated users visiting /login or /register -> redirect to their role portal
+  if (user && isAuthRoute) {
+    const portalUrl = request.nextUrl.clone();
+    portalUrl.pathname = isAdmin ? "/admin" : "/dashboard";
+    portalUrl.search = "";
+    return createRedirectWithSessionCookies(portalUrl, supabaseResponse);
   }
 
   return supabaseResponse;
