@@ -133,6 +133,17 @@ export interface VoterWithRegion extends Voter {
   region: Region | null;
 }
 
+export interface PollingStationWithRegion extends PollingStation {
+  region: Region | null;
+}
+
+export interface CandidateWithRelations extends Candidate {
+  political_party: PoliticalParty | null;
+  election_symbol: ElectionSymbol | null;
+  region: Region | null;
+  election: Election | null;
+}
+
 // ---------------------------------------------------------------------------
 // Insert & Update Helper Types
 // ---------------------------------------------------------------------------
