@@ -78,7 +78,7 @@ export default function Navbar() {
             className="h-4 w-4 text-[#10B981]"
             aria-hidden="true"
           />
-          <span>EMS</span>
+          <span>Electys</span>
         </Link>
 
         <span className="h-4 w-px bg-[#1F2E26]" aria-hidden="true" />

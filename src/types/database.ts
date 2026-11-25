@@ -1,6 +1,6 @@
 /**
  * Strict TypeScript definitions matching the exact PostgreSQL schema
- * for the Election Management System (EMS).
+ * for Electys (Election Management System).
  *
  * Note: `election_turnout` and `vote` are intentionally omitted from
  * client-exposed table interfaces — votes are cast exclusively via the

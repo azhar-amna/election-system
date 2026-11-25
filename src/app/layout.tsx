@@ -3,8 +3,10 @@ import Navbar from "@/components/Navbar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "EMS — Election Management System",
-  description: "Election Management System",
+  metadataBase: new URL("https://electys.vercel.app"),
+  title: "Electys",
+  description:
+    "Secure election management platform with verified voter onboarding, encrypted one-time ballots, and live real-time results.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,4 +1,4 @@
-# ROADMAP.md — Election Management System (Full-Stack Build Plan)
+# ROADMAP.md — Electys (Full-Stack Build Plan)
 
 ## Phase 1: Project Initialization & Supabase Connection
 - **Goal:** Scaffold Next.js App Router project with TypeScript, Tailwind CSS, Lucide icons, and `@supabase/ssr`.

@@ -1,7 +1,7 @@
-# AGENTS.md — Election Management System (Next.js + Supabase)
+# AGENTS.md — Electys (Next.js + Supabase)
 
 ## 1. Project Identity & Stack
-- **Application:** Election Management System (EMS)
+- **Application:** Electys (Election Management System)
 - **Frontend Framework:** Next.js (App Router, TypeScript, Tailwind CSS)
 - **Backend / Database:** Supabase (PostgreSQL, Supabase Auth, Supabase Storage, Supabase Realtime)
 - **Visual Theme:** High-contrast **Obsidian Black & Emerald Green** theme.
