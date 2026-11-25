@@ -10,10 +10,14 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { sanitizePublicError } from "@/lib/validation";
+import { parsePositiveInt, sanitizePublicError } from "@/lib/validation";
 import BallotClient from "@/components/ballot/BallotClient";
 
-async function BallotContent() {
+interface BallotPageProps {
+  searchParams: Promise<{ election?: string | string[] }>;
+}
+
+async function BallotContent({ searchParams }: BallotPageProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -27,24 +31,25 @@ async function BallotContent() {
     redirect("/admin");
   }
 
-  const [voterRes, activeElectionRes] = await Promise.all([
-    supabase
-      .from("voter")
-      .select("*, region(*)")
-      .eq("auth_user_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("election")
-      .select("*")
-      .eq("status", "ACTIVE")
-      .order("start_date", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [resolvedParams, voterRes, activeElectionsRes, votedElectionsRes] =
+    await Promise.all([
+      searchParams,
+      supabase
+        .from("voter")
+        .select("*, region(*)")
+        .eq("auth_user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("election")
+        .select("*")
+        .eq("status", "ACTIVE")
+        .order("start_date", { ascending: false }),
+      supabase.rpc("get_my_voted_elections"),
+    ]);
 
-  if (voterRes.error || activeElectionRes.error) {
+  if (voterRes.error || activeElectionsRes.error) {
     const errMsg = sanitizePublicError(
-      voterRes.error ?? activeElectionRes.error,
+      voterRes.error ?? activeElectionsRes.error,
       "Failed to load ballot eligibility."
     );
     return (
@@ -78,7 +83,7 @@ async function BallotContent() {
   }
 
   const voter = voterRes.data;
-  const activeElection = activeElectionRes.data;
+  const activeElections = activeElectionsRes.data ?? [];
 
   // Gate 1: Voter must exist, have completed profile, AND be APPROVED
   if (
@@ -109,54 +114,37 @@ async function BallotContent() {
             )}
           </div>
 
-          <span
-            className={`mt-5 inline-flex rounded-full px-3 py-1 font-mono text-[11px] font-semibold tracking-wider uppercase ${
-              isRejected ? "ems-badge-danger" : "ems-badge-warning"
-            }`}
-          >
-            {isRejected
-              ? "Registration Rejected"
-              : isIncomplete
-                ? "Profile Incomplete"
-                : "Pending Admin Approval"}
-          </span>
-
-          <h1 className="mt-4 text-2xl font-bold text-[#F3F4F6]">
+          <h1 className="mt-4 text-xl font-semibold text-[#F3F4F6]">
             Voting Ballot Locked
           </h1>
 
-          <p className="mx-auto mt-2.5 max-w-md text-sm leading-relaxed text-[#9CA3AF]">
+          <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-[#9CA3AF]">
             {isRejected
-              ? "Your voter registration was rejected by an administrator. Update and resubmit your profile from your dashboard to regain eligibility."
+              ? "Your registration was rejected. Update and resubmit your profile from your dashboard."
               : isIncomplete
-                ? "You must complete your voter profile and receive administrative approval before entering the voting booth."
-                : "Your profile has been submitted and is currently awaiting administrative verification. Ballot access will unlock automatically once approved."}
+                ? "Complete your voter profile and wait for admin approval before voting."
+                : "Your profile is awaiting admin approval."}
           </p>
 
           {isRejected && voter?.rejection_reason && (
-            <div className="mx-auto mt-5 max-w-md rounded-lg border border-[#EF4444]/35 bg-[#2A0D10]/70 p-3.5 text-left">
-              <p className="font-mono text-[10px] font-semibold tracking-wider text-[#EF4444] uppercase">
-                Rejection Reason
-              </p>
-              <p className="mt-1 text-sm text-[#F3F4F6]">
-                {voter.rejection_reason}
-              </p>
+            <div className="mx-auto mt-4 max-w-md rounded-lg border border-[#EF4444]/35 bg-[#2A0D10]/70 p-3 text-left text-xs text-[#F3F4F6]">
+              {voter.rejection_reason}
             </div>
           )}
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-lg bg-[#10B981] px-5 py-2.5 text-sm font-semibold text-[#090D0B] transition-colors hover:bg-[#22C55E]"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#10B981] px-4 py-2 text-xs font-semibold text-[#090D0B] hover:bg-[#22C55E]"
             >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              <span>Go to Voter Dashboard</span>
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Dashboard</span>
             </Link>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg border border-[#1F2E26] bg-[#161F1A] px-5 py-2.5 text-sm font-medium text-[#F3F4F6] transition-colors hover:border-[#10B981]/50 hover:text-[#22C55E]"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#1F2E26] bg-[#161F1A] px-4 py-2 text-xs font-medium text-[#F3F4F6] hover:border-[#10B981]/50"
             >
-              <BarChart3 className="h-4 w-4" aria-hidden="true" />
+              <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Live Results</span>
             </Link>
           </div>
@@ -165,47 +153,40 @@ async function BallotContent() {
     );
   }
 
-  // Gate 2: An ACTIVE election must exist
-  if (!activeElection) {
+  // Gate 2: At least one ACTIVE election must exist
+  if (activeElections.length === 0) {
     return (
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-14 sm:px-6">
         <section
           aria-label="No Active Election"
           className="ems-card p-8 text-center sm:p-10"
         >
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#1F2E26] bg-[#161F1A] text-[#10B981]">
-            <Clock className="h-7 w-7" aria-hidden="true" />
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#1F2E26] bg-[#161F1A] text-[#10B981]">
+            <Clock className="h-6 w-6" aria-hidden="true" />
           </div>
 
-          <span className="ems-badge-warning mt-5 inline-flex rounded-full px-3 py-1 font-mono text-[11px] font-semibold tracking-wider uppercase">
-            Polls Currently Closed
-          </span>
-
-          <h1 className="mt-4 text-2xl font-bold text-[#F3F4F6]">
-            No Active Election Right Now
+          <h1 className="mt-4 text-xl font-semibold text-[#F3F4F6]">
+            No Active Elections
           </h1>
 
-          <p className="mx-auto mt-2.5 max-w-md text-sm leading-relaxed text-[#9CA3AF]">
-            Your voter registration is verified and approved, but there is no
-            election currently in{" "}
-            <code className="font-mono text-[#10B981]">ACTIVE</code> status.
-            Check back once polls open or view public election results.
+          <p className="mx-auto mt-2 max-w-md text-xs text-[#9CA3AF]">
+            There are no open elections right now.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg bg-[#10B981] px-5 py-2.5 text-sm font-semibold text-[#090D0B] transition-colors hover:bg-[#22C55E]"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#10B981] px-4 py-2 text-xs font-semibold text-[#090D0B] hover:bg-[#22C55E]"
             >
-              <BarChart3 className="h-4 w-4" aria-hidden="true" />
+              <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Live Results</span>
             </Link>
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-lg border border-[#1F2E26] bg-[#161F1A] px-5 py-2.5 text-sm font-medium text-[#F3F4F6] transition-colors hover:border-[#10B981]/50 hover:text-[#22C55E]"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#1F2E26] bg-[#161F1A] px-4 py-2 text-xs font-medium text-[#F3F4F6] hover:border-[#10B981]/50"
             >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              <span>Back to Dashboard</span>
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Dashboard</span>
             </Link>
           </div>
         </section>
@@ -213,14 +194,34 @@ async function BallotContent() {
     );
   }
 
-  // Load candidates for the ACTIVE election + polling stations
+  const activeElectionIds = activeElections.map((e) => e.election_id);
+
+  // Per-election voted IDs via RPC (falls back gracefully to [] if RPC is not yet created)
+  const votedElectionIds: number[] =
+    !votedElectionsRes.error && Array.isArray(votedElectionsRes.data)
+      ? votedElectionsRes.data.filter(
+          (id): id is number => typeof id === "number" && Number.isInteger(id)
+        )
+      : [];
+
+  const requestedParam = Array.isArray(resolvedParams.election)
+    ? resolvedParams.election[0]
+    : resolvedParams.election;
+  const requestedElectionId = parsePositiveInt(requestedParam);
+  const initialSelectedElectionId =
+    requestedElectionId !== null &&
+    activeElectionIds.includes(requestedElectionId)
+      ? requestedElectionId
+      : null;
+
+  // Load candidates for all ACTIVE elections + polling stations
   const [candidatesRes, stationsRes] = await Promise.all([
     supabase
       .from("candidate")
       .select(
         "*, political_party(*), election_symbol(*), region(*), election(*)"
       )
-      .eq("election_id", activeElection.election_id)
+      .in("election_id", activeElectionIds)
       .order("candidate_id", { ascending: true }),
     supabase
       .from("polling_station")
@@ -248,7 +249,9 @@ async function BallotContent() {
   return (
     <BallotClient
       voter={voter}
-      activeElection={activeElection}
+      activeElections={activeElections}
+      initialVotedElectionIds={votedElectionIds}
+      initialSelectedElectionId={initialSelectedElectionId}
       candidates={candidatesRes.data ?? []}
       pollingStations={stationsRes.data ?? []}
     />
@@ -259,17 +262,16 @@ function BallotSkeleton() {
   return (
     <div
       aria-label="Loading voting ballot"
-      className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
+      className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-8 sm:px-6"
     >
-      <div className="h-32 animate-pulse rounded-xl border border-[#1F2E26] bg-[#111814]" />
-      <div className="h-24 animate-pulse rounded-xl border border-[#1F2E26] bg-[#111814]" />
-      <div className="ems-card p-6">
-        <div className="h-6 w-48 animate-pulse rounded-md bg-[#161F1A]" />
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((n) => (
+      <div className="h-12 animate-pulse rounded-lg border border-[#1F2E26] bg-[#111814]" />
+      <div className="ems-card p-5">
+        <div className="h-5 w-40 animate-pulse rounded bg-[#161F1A]" />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((n) => (
             <div
               key={n}
-              className="h-48 animate-pulse rounded-xl border border-[#1F2E26] bg-[#090D0B]"
+              className="h-24 animate-pulse rounded-lg border border-[#1F2E26] bg-[#090D0B]"
             />
           ))}
         </div>
@@ -278,10 +280,10 @@ function BallotSkeleton() {
   );
 }
 
-export default function BallotPage() {
+export default function BallotPage({ searchParams }: BallotPageProps) {
   return (
     <Suspense fallback={<BallotSkeleton />}>
-      <BallotContent />
+      <BallotContent searchParams={searchParams} />
     </Suspense>
   );
 }

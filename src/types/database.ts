@@ -411,6 +411,10 @@ export interface Database {
         Args: AsRecord<CastVoteArgs>;
         Returns: unknown;
       };
+      get_my_voted_elections: {
+        Args: Record<string, never>;
+        Returns: number[];
+      };
     };
     Enums: {
       election_status: ElectionStatus;

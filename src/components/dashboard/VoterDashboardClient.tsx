@@ -26,10 +26,11 @@ import type { Election, Region, VoterWithRegion } from "@/types/database";
 interface VoterDashboardClientProps {
   initialVoter: VoterWithRegion;
   regions: Region[];
-  activeElection: Pick<
+  activeElections: Pick<
     Election,
     "election_id" | "title" | "start_date" | "end_date" | "status"
-  > | null;
+  >[];
+  initialVotedElectionIds: number[];
   regionsError?: string | null;
 }
 
@@ -64,12 +65,16 @@ function formatRegionLabel(region: Region): string {
 export default function VoterDashboardClient({
   initialVoter,
   regions,
-  activeElection,
+  activeElections,
+  initialVotedElectionIds,
   regionsError,
 }: VoterDashboardClientProps) {
   const router = useRouter();
 
   const [voter, setVoter] = useState<VoterWithRegion>(initialVoter);
+  const [votedElectionIds, setVotedElectionIds] = useState<number[]>(
+    initialVotedElectionIds
+  );
 
   const [name, setName] = useState(initialVoter.name ?? "");
   const [gender, setGender] = useState(initialVoter.gender ?? "");
@@ -115,15 +120,26 @@ export default function VoterDashboardClient({
         return;
       }
 
-      const { data: latestVoter, error } = await supabase
-        .from("voter")
-        .select("*, region(*)")
-        .eq("auth_user_id", user.id)
-        .single();
+      const [{ data: latestVoter, error }, votedRes] = await Promise.all([
+        supabase
+          .from("voter")
+          .select("*, region(*)")
+          .eq("auth_user_id", user.id)
+          .single(),
+        supabase.rpc("get_my_voted_elections"),
+      ]);
 
       if (error) {
         setFormError(sanitizePublicError(error, "Unable to refresh status."));
         return;
+      }
+
+      if (!votedRes.error && Array.isArray(votedRes.data)) {
+        setVotedElectionIds(
+          votedRes.data.filter(
+            (id): id is number => typeof id === "number" && Number.isInteger(id)
+          )
+        );
       }
 
       if (latestVoter) {
@@ -314,37 +330,83 @@ export default function VoterDashboardClient({
       )}
 
       {isApproved && (
-        <div className="flex flex-col justify-between gap-4 rounded-lg border border-[#10B981]/50 bg-[#052E16]/70 p-4 sm:flex-row sm:items-center">
-          <div className="flex items-start gap-3">
-            <CheckCircle2
-              className="mt-0.5 h-5 w-5 shrink-0 text-[#22C55E]"
-              aria-hidden="true"
-            />
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold text-[#F3F4F6]">
-                  Approved &amp; Verified Voter
-                </p>
-                <span className="rounded-full border border-[#10B981]/40 bg-[#090D0B] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#22C55E] uppercase">
-                  {voter.has_voted ? "Voted" : "Not Voted"}
-                </span>
+        <div className="space-y-3 rounded-lg border border-[#10B981]/50 bg-[#052E16]/70 p-4">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3">
+              <CheckCircle2
+                className="mt-0.5 h-5 w-5 shrink-0 text-[#22C55E]"
+                aria-hidden="true"
+              />
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-[#F3F4F6]">
+                    Approved &amp; Verified Voter
+                  </p>
+                  {activeElections.length > 0 && (
+                    <span className="rounded-full border border-[#10B981]/40 bg-[#090D0B] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#22C55E] uppercase">
+                      {activeElections.filter(
+                        (e) => !votedElectionIds.includes(e.election_id)
+                      ).length > 0
+                        ? `${
+                            activeElections.filter(
+                              (e) => !votedElectionIds.includes(e.election_id)
+                            ).length
+                          } Open to Vote`
+                        : "All Active Voted"}
+                    </span>
+                  )}
+                </div>
+                {activeElections.length === 0 && (
+                  <p className="mt-0.5 text-xs text-[#9CA3AF]">
+                    No active elections right now.
+                  </p>
+                )}
               </div>
-              {activeElection && (
-                <p className="mt-0.5 text-xs text-[#9CA3AF]">
-                  Active: {activeElection.title}
-                </p>
-              )}
             </div>
+
+            <Link
+              href="/ballot"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#10B981] px-4 py-2 text-xs font-semibold text-[#090D0B] transition-colors hover:bg-[#22C55E]"
+            >
+              <Vote className="h-4 w-4" aria-hidden="true" />
+              <span>Go to Voting Ballot</span>
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
           </div>
 
-          <Link
-            href="/ballot"
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#10B981] px-4 py-2 text-xs font-semibold text-[#090D0B] transition-colors hover:bg-[#22C55E]"
-          >
-            <Vote className="h-4 w-4" aria-hidden="true" />
-            <span>Go to Voting Ballot</span>
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
+          {activeElections.length > 0 && (
+            <div className="divide-y divide-[#1F2E26] overflow-hidden rounded-lg border border-[#1F2E26] bg-[#090D0B]/80">
+              {activeElections.map((election) => {
+                const alreadyVoted = votedElectionIds.includes(
+                  election.election_id
+                );
+                return (
+                  <div
+                    key={election.election_id}
+                    className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-xs"
+                  >
+                    <span className="truncate font-medium text-[#F3F4F6]">
+                      {election.title}
+                    </span>
+                    {alreadyVoted ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#10B981]/35 bg-[#052E16] px-2.5 py-0.5 font-mono text-[10px] font-semibold text-[#22C55E] uppercase">
+                        <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                        Voted
+                      </span>
+                    ) : (
+                      <Link
+                        href={`/ballot?election=${election.election_id}`}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[#10B981] px-2.5 py-1 font-semibold text-[#090D0B] hover:bg-[#22C55E]"
+                      >
+                        <span>Vote</span>
+                        <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

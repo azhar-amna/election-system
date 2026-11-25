@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowRight,
   Check,
   CheckCircle2,
   Image as ImageIcon,
@@ -25,20 +26,42 @@ import type {
 
 interface BallotClientProps {
   voter: VoterWithRegion;
-  activeElection: Election;
+  activeElections: Election[];
+  initialVotedElectionIds: number[];
+  initialSelectedElectionId: number | null;
   candidates: CandidateWithRelations[];
   pollingStations: PollingStationWithRegion[];
 }
 
 export default function BallotClient({
   voter,
-  activeElection,
+  activeElections,
+  initialVotedElectionIds,
+  initialSelectedElectionId,
   candidates,
   pollingStations,
 }: BallotClientProps) {
   const router = useRouter();
 
-  const [hasVoted, setHasVoted] = useState<boolean>(voter.has_voted);
+  const [votedElectionIds, setVotedElectionIds] = useState<number[]>(
+    initialVotedElectionIds
+  );
+
+  // Pick requested active election, or first unvoted active election, or first active election
+  const [selectedElectionId, setSelectedElectionId] = useState<number>(() => {
+    if (
+      initialSelectedElectionId !== null &&
+      activeElections.some((e) => e.election_id === initialSelectedElectionId)
+    ) {
+      return initialSelectedElectionId;
+    }
+    const firstUnvoted = activeElections.find(
+      (e) => !initialVotedElectionIds.includes(e.election_id)
+    );
+    return firstUnvoted
+      ? firstUnvoted.election_id
+      : activeElections[0].election_id;
+  });
 
   const defaultStationId = useMemo(() => {
     const sameRegionStation = pollingStations.find(
@@ -70,15 +93,42 @@ export default function BallotClient({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [confirmModalOpen, isCasting]);
 
+  const selectedElection = useMemo(
+    () =>
+      activeElections.find((e) => e.election_id === selectedElectionId) ??
+      activeElections[0],
+    [activeElections, selectedElectionId]
+  );
+
+  const hasVotedInSelectedElection = votedElectionIds.includes(
+    selectedElection.election_id
+  );
+
+  const nextUnvotedElection = useMemo(
+    () =>
+      activeElections.find(
+        (e) =>
+          e.election_id !== selectedElection.election_id &&
+          !votedElectionIds.includes(e.election_id)
+      ) ?? null,
+    [activeElections, selectedElection.election_id, votedElectionIds]
+  );
+
+  const electionCandidates = useMemo(
+    () =>
+      candidates.filter((c) => c.election_id === selectedElection.election_id),
+    [candidates, selectedElection.election_id]
+  );
+
   const hasMyRegionCandidates = useMemo(
     () =>
       voter.region_id !== null &&
-      candidates.some((c) => c.region_id === voter.region_id),
-    [candidates, voter.region_id]
+      electionCandidates.some((c) => c.region_id === voter.region_id),
+    [electionCandidates, voter.region_id]
   );
 
   const displayedCandidates = useMemo(() => {
-    const sorted = [...candidates].sort((a, b) => {
+    const sorted = [...electionCandidates].sort((a, b) => {
       const aMatch = voter.region_id !== null && a.region_id === voter.region_id;
       const bMatch = voter.region_id !== null && b.region_id === voter.region_id;
       if (aMatch && !bMatch) return -1;
@@ -91,12 +141,13 @@ export default function BallotClient({
     }
 
     return sorted;
-  }, [candidates, regionScope, voter.region_id]);
+  }, [electionCandidates, regionScope, voter.region_id]);
 
   const selectedCandidate = useMemo(
     () =>
-      candidates.find((c) => c.candidate_id === selectedCandidateId) ?? null,
-    [candidates, selectedCandidateId]
+      electionCandidates.find((c) => c.candidate_id === selectedCandidateId) ??
+      null,
+    [electionCandidates, selectedCandidateId]
   );
 
   const selectedStation = useMemo(
@@ -106,13 +157,26 @@ export default function BallotClient({
     [pollingStations, selectedStationId]
   );
 
+  function handleSelectElection(electionId: number) {
+    setSelectedElectionId(electionId);
+    setSelectedCandidateId(null);
+    setConfirmModalOpen(false);
+    setErrorMessage(null);
+  }
+
+  function markElectionVoted(electionId: number) {
+    setVotedElectionIds((prev) =>
+      prev.includes(electionId) ? prev : [...prev, electionId]
+    );
+  }
+
   async function handleConfirmCastVote() {
     if (!selectedCandidate || !selectedStation) {
       setErrorMessage("Select a polling station and candidate.");
       return;
     }
 
-    const electionId = parsePositiveInt(activeElection.election_id);
+    const electionId = parsePositiveInt(selectedElection.election_id);
     const candidateId = parsePositiveInt(selectedCandidate.candidate_id);
     const stationId = parsePositiveInt(selectedStation.station_id);
 
@@ -142,7 +206,7 @@ export default function BallotClient({
         ) {
           setSelectedCandidateId(null);
           setConfirmModalOpen(false);
-          setHasVoted(true);
+          markElectionVoted(electionId);
           router.refresh();
           return;
         }
@@ -155,7 +219,7 @@ export default function BallotClient({
 
       setSelectedCandidateId(null);
       setConfirmModalOpen(false);
-      setHasVoted(true);
+      markElectionVoted(electionId);
       router.refresh();
     } catch {
       setErrorMessage("Unable to submit ballot.");
@@ -165,239 +229,307 @@ export default function BallotClient({
     }
   }
 
-  // Permanent anonymous confirmation card (never reveals chosen candidate)
-  if (hasVoted) {
-    return (
-      <div className="mx-auto flex w-full max-w-lg flex-col px-4 py-14">
-        <section className="ems-card border-[#10B981]/50 p-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#10B981]/50 bg-[#052E16] text-[#22C55E]">
-            <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
-          </div>
-          <h1 className="mt-4 text-xl font-semibold text-[#F3F4F6]">
-            Encrypted Ballot Recorded
-          </h1>
-          <p className="mt-2 text-xs text-[#9CA3AF]">
-            {activeElection.title} &bull; {voter.cnic}
-          </p>
-          <p className="mt-3 text-xs leading-relaxed text-[#9CA3AF]">
-            Your encrypted ballot is permanently recorded and cannot be viewed
-            or changed.
-          </p>
-          <div className="mt-6 flex justify-center gap-2.5">
-            <Link
-              href="/"
-              className="rounded-lg bg-[#10B981] px-4 py-2 text-xs font-semibold text-[#090D0B] hover:bg-[#22C55E]"
-            >
-              Live Results
-            </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-lg border border-[#1F2E26] bg-[#090D0B] px-4 py-2 text-xs font-medium text-[#F3F4F6] hover:border-[#10B981]/50"
-            >
-              Dashboard
-            </Link>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
   const canOpenConfirm =
-    Boolean(selectedStation) && Boolean(selectedCandidate) && !isCasting;
+    !hasVotedInSelectedElection &&
+    Boolean(selectedStation) &&
+    Boolean(selectedCandidate) &&
+    !isCasting;
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-8 sm:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-[#F3F4F6]">
-            {activeElection.title}
-          </h1>
-          <p className="mt-0.5 font-mono text-xs text-[#9CA3AF]">
-            {voter.cnic}
-            {voter.region ? ` • ${voter.region.region_name}` : ""}
-          </p>
-        </div>
-
-        <div className="w-full sm:w-72">
-          <label htmlFor="ballot-station-select" className="sr-only">
-            Polling Station
-          </label>
-          <select
-            id="ballot-station-select"
-            value={selectedStationId}
-            disabled={pollingStations.length === 0}
-            onChange={(e) => setSelectedStationId(e.target.value)}
-            className="w-full rounded-lg border border-[#1F2E26] bg-[#111814] px-3 py-2 text-sm text-[#F3F4F6] focus:border-[#10B981] focus:outline-none disabled:opacity-60"
-          >
-            {pollingStations.length === 0 ? (
-              <option value="">No polling stations</option>
-            ) : (
-              pollingStations.map((station) => (
-                <option
-                  key={station.station_id}
-                  value={String(station.station_id)}
-                >
-                  {station.name}
-                  {station.region ? ` (${station.region.region_name})` : ""}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-      </div>
-
-      {errorMessage && (
+      {/* Multi-Election Switcher (shown whenever multiple elections are ACTIVE) */}
+      {activeElections.length > 1 && (
         <div
-          role="alert"
-          className="flex items-center justify-between rounded-lg border border-[#EF4444]/40 bg-[#2A0D10] px-4 py-2.5 text-xs text-[#EF4444]"
+          role="tablist"
+          aria-label="Active Elections"
+          className="flex flex-wrap gap-2 border-b border-[#1F2E26] pb-3"
         >
-          <span className="inline-flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>{errorMessage}</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => setErrorMessage(null)}
-            className="cursor-pointer hover:underline"
-          >
-            Dismiss
-          </button>
+          {activeElections.map((election) => {
+            const isCurrent =
+              election.election_id === selectedElection.election_id;
+            const isVoted = votedElectionIds.includes(election.election_id);
+
+            return (
+              <button
+                key={election.election_id}
+                type="button"
+                role="tab"
+                aria-selected={isCurrent}
+                onClick={() => handleSelectElection(election.election_id)}
+                className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-medium transition-colors ${
+                  isCurrent
+                    ? "border-[#10B981]/50 bg-[#052E16] text-[#22C55E]"
+                    : "border-[#1F2E26] bg-[#111814] text-[#9CA3AF] hover:border-[#10B981]/30 hover:text-[#F3F4F6]"
+                }`}
+              >
+                <span>{election.title}</span>
+                {isVoted ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#090D0B] px-2 py-0.5 font-mono text-[10px] text-[#22C55E] uppercase">
+                    <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                    Voted
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-[#10B981]/15 px-2 py-0.5 font-mono text-[10px] text-[#10B981] uppercase">
+                    Open
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* Candidate Selection */}
-      <section className="ems-card p-5">
-        <div className="flex items-center justify-between gap-3 border-b border-[#1F2E26] pb-3">
-          <h2 className="text-sm font-semibold text-[#F3F4F6]">
-            Select Candidate
-          </h2>
-          {hasMyRegionCandidates && (
-            <div className="inline-flex gap-1 rounded-md border border-[#1F2E26] bg-[#090D0B] p-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setRegionScope("ALL")}
-                className={`cursor-pointer rounded px-2.5 py-1 ${
-                  regionScope === "ALL"
-                    ? "bg-[#052E16] text-[#22C55E]"
-                    : "text-[#9CA3AF]"
+      {/* Permanent anonymous confirmation card for THIS election only */}
+      {hasVotedInSelectedElection ? (
+        <div className="mx-auto flex w-full max-w-lg flex-col py-6">
+          <section className="ems-card border-[#10B981]/50 p-8 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#10B981]/50 bg-[#052E16] text-[#22C55E]">
+              <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <h1 className="mt-4 text-xl font-semibold text-[#F3F4F6]">
+              Encrypted Ballot Recorded
+            </h1>
+            <p className="mt-2 text-xs text-[#9CA3AF]">
+              {selectedElection.title} &bull; {voter.cnic}
+            </p>
+            <p className="mt-3 text-xs leading-relaxed text-[#9CA3AF]">
+              Your encrypted ballot for this election is permanently recorded
+              and cannot be viewed or changed.
+            </p>
+
+            <div className="mt-6 flex flex-wrap justify-center gap-2.5">
+              {nextUnvotedElection && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleSelectElection(nextUnvotedElection.election_id)
+                  }
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#10B981] px-4 py-2 text-xs font-semibold text-[#090D0B] hover:bg-[#22C55E]"
+                >
+                  <span>Vote in {nextUnvotedElection.title}</span>
+                  <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              )}
+              <Link
+                href="/"
+                className={`rounded-lg px-4 py-2 text-xs font-semibold ${
+                  nextUnvotedElection
+                    ? "border border-[#1F2E26] bg-[#090D0B] font-medium text-[#F3F4F6] hover:border-[#10B981]/50"
+                    : "bg-[#10B981] text-[#090D0B] hover:bg-[#22C55E]"
                 }`}
               >
-                All
-              </button>
+                Live Results
+              </Link>
+              <Link
+                href="/dashboard"
+                className="rounded-lg border border-[#1F2E26] bg-[#090D0B] px-4 py-2 text-xs font-medium text-[#F3F4F6] hover:border-[#10B981]/50"
+              >
+                Dashboard
+              </Link>
+            </div>
+          </section>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight text-[#F3F4F6]">
+                {selectedElection.title}
+              </h1>
+              <p className="mt-0.5 font-mono text-xs text-[#9CA3AF]">
+                {voter.cnic}
+                {voter.region ? ` • ${voter.region.region_name}` : ""}
+              </p>
+            </div>
+
+            <div className="w-full sm:w-72">
+              <label htmlFor="ballot-station-select" className="sr-only">
+                Polling Station
+              </label>
+              <select
+                id="ballot-station-select"
+                value={selectedStationId}
+                disabled={pollingStations.length === 0}
+                onChange={(e) => setSelectedStationId(e.target.value)}
+                className="w-full rounded-lg border border-[#1F2E26] bg-[#111814] px-3 py-2 text-sm text-[#F3F4F6] focus:border-[#10B981] focus:outline-none disabled:opacity-60"
+              >
+                {pollingStations.length === 0 ? (
+                  <option value="">No polling stations</option>
+                ) : (
+                  pollingStations.map((station) => (
+                    <option
+                      key={station.station_id}
+                      value={String(station.station_id)}
+                    >
+                      {station.name}
+                      {station.region ? ` (${station.region.region_name})` : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          </div>
+
+          {errorMessage && (
+            <div
+              role="alert"
+              className="flex items-center justify-between rounded-lg border border-[#EF4444]/40 bg-[#2A0D10] px-4 py-2.5 text-xs text-[#EF4444]"
+            >
+              <span className="inline-flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{errorMessage}</span>
+              </span>
               <button
                 type="button"
-                onClick={() => setRegionScope("MY_REGION")}
-                className={`cursor-pointer rounded px-2.5 py-1 ${
-                  regionScope === "MY_REGION"
-                    ? "bg-[#052E16] text-[#22C55E]"
-                    : "text-[#9CA3AF]"
-                }`}
+                onClick={() => setErrorMessage(null)}
+                className="cursor-pointer hover:underline"
               >
-                My Region
+                Dismiss
               </button>
             </div>
           )}
-        </div>
 
-        {displayedCandidates.length === 0 ? (
-          <p className="py-10 text-center text-xs text-[#9CA3AF]">
-            No candidates available.
-          </p>
-        ) : (
-          <div
-            role="radiogroup"
-            aria-label="Candidates"
-            className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-          >
-            {displayedCandidates.map((candidate) => {
-              const isSelected =
-                selectedCandidateId === candidate.candidate_id;
-
-              return (
-                <button
-                  key={candidate.candidate_id}
-                  type="button"
-                  role="radio"
-                  aria-checked={isSelected}
-                  onClick={() => {
-                    setErrorMessage(null);
-                    setSelectedCandidateId(candidate.candidate_id);
-                  }}
-                  className={`flex cursor-pointer items-center gap-3.5 rounded-lg border p-4 text-left transition-colors ${
-                    isSelected
-                      ? "border-[#10B981] bg-[#052E16]/50"
-                      : "border-[#1F2E26] bg-[#090D0B] hover:border-[#10B981]/50"
-                  }`}
-                >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#1F2E26] bg-[#111814] p-1">
-                    {candidate.election_symbol?.image_url ? (
-                      <Image
-                        unoptimized
-                        src={candidate.election_symbol.image_url}
-                        alt={candidate.election_symbol.symbol_name}
-                        width={44}
-                        height={44}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <ImageIcon
-                        className="h-5 w-5 text-[#6B7280]"
-                        aria-hidden="true"
-                      />
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-[#F3F4F6]">
-                      {candidate.name}
-                    </p>
-                    <p className="truncate text-xs text-[#10B981]">
-                      {candidate.political_party?.party_name ?? "Independent"}
-                    </p>
-                    <p className="truncate text-[11px] text-[#6B7280]">
-                      {candidate.region?.region_name ??
-                        `Region #${candidate.region_id}`}
-                    </p>
-                  </div>
-
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                      isSelected
-                        ? "border-[#22C55E] bg-[#10B981] text-[#090D0B]"
-                        : "border-[#1F2E26]"
+          {/* Candidate Selection */}
+          <section className="ems-card p-5">
+            <div className="flex items-center justify-between gap-3 border-b border-[#1F2E26] pb-3">
+              <h2 className="text-sm font-semibold text-[#F3F4F6]">
+                Select Candidate
+              </h2>
+              {hasMyRegionCandidates && (
+                <div className="inline-flex gap-1 rounded-md border border-[#1F2E26] bg-[#090D0B] p-0.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setRegionScope("ALL")}
+                    className={`cursor-pointer rounded px-2.5 py-1 ${
+                      regionScope === "ALL"
+                        ? "bg-[#052E16] text-[#22C55E]"
+                        : "text-[#9CA3AF]"
                     }`}
                   >
-                    {isSelected && (
-                      <Check className="h-3 w-3" aria-hidden="true" />
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </section>
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRegionScope("MY_REGION")}
+                    className={`cursor-pointer rounded px-2.5 py-1 ${
+                      regionScope === "MY_REGION"
+                        ? "bg-[#052E16] text-[#22C55E]"
+                        : "text-[#9CA3AF]"
+                    }`}
+                  >
+                    My Region
+                  </button>
+                </div>
+              )}
+            </div>
 
-      {/* Cast Action */}
-      <div className="flex items-center justify-between gap-4">
-        <span className="inline-flex items-center gap-1.5 text-xs text-[#9CA3AF]">
-          <Lock className="h-3.5 w-3.5 text-[#10B981]" aria-hidden="true" />
-          <span>
-            {selectedCandidate ? selectedCandidate.name : "Select a candidate"}
-          </span>
-        </span>
-        <button
-          type="button"
-          disabled={!canOpenConfirm}
-          onClick={() => {
-            setErrorMessage(null);
-            setConfirmModalOpen(true);
-          }}
-          className="cursor-pointer rounded-lg bg-[#10B981] px-5 py-2.5 text-sm font-semibold text-[#090D0B] transition-colors hover:bg-[#22C55E] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Cast Ballot
-        </button>
-      </div>
+            {displayedCandidates.length === 0 ? (
+              <p className="py-10 text-center text-xs text-[#9CA3AF]">
+                No candidates available for this election.
+              </p>
+            ) : (
+              <div
+                role="radiogroup"
+                aria-label="Candidates"
+                className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                {displayedCandidates.map((candidate) => {
+                  const isSelected =
+                    selectedCandidateId === candidate.candidate_id;
+
+                  return (
+                    <button
+                      key={candidate.candidate_id}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => {
+                        setErrorMessage(null);
+                        setSelectedCandidateId(candidate.candidate_id);
+                      }}
+                      className={`flex cursor-pointer items-center gap-3.5 rounded-lg border p-4 text-left transition-colors ${
+                        isSelected
+                          ? "border-[#10B981] bg-[#052E16]/50"
+                          : "border-[#1F2E26] bg-[#090D0B] hover:border-[#10B981]/50"
+                      }`}
+                    >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#1F2E26] bg-[#111814] p-1">
+                        {candidate.election_symbol?.image_url ? (
+                          <Image
+                            unoptimized
+                            src={candidate.election_symbol.image_url}
+                            alt={candidate.election_symbol.symbol_name}
+                            width={44}
+                            height={44}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <ImageIcon
+                            className="h-5 w-5 text-[#6B7280]"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-[#F3F4F6]">
+                          {candidate.name}
+                        </p>
+                        <p className="truncate text-xs text-[#10B981]">
+                          {candidate.political_party?.party_name ??
+                            "Independent"}
+                        </p>
+                        <p className="truncate text-[11px] text-[#6B7280]">
+                          {candidate.region?.region_name ??
+                            `Region #${candidate.region_id}`}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                          isSelected
+                            ? "border-[#22C55E] bg-[#10B981] text-[#090D0B]"
+                            : "border-[#1F2E26]"
+                        }`}
+                      >
+                        {isSelected && (
+                          <Check className="h-3 w-3" aria-hidden="true" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* Cast Action */}
+          <div className="flex items-center justify-between gap-4">
+            <span className="inline-flex items-center gap-1.5 text-xs text-[#9CA3AF]">
+              <Lock
+                className="h-3.5 w-3.5 text-[#10B981]"
+                aria-hidden="true"
+              />
+              <span>
+                {selectedCandidate
+                  ? selectedCandidate.name
+                  : "Select a candidate"}
+              </span>
+            </span>
+            <button
+              type="button"
+              disabled={!canOpenConfirm}
+              onClick={() => {
+                setErrorMessage(null);
+                setConfirmModalOpen(true);
+              }}
+              className="cursor-pointer rounded-lg bg-[#10B981] px-5 py-2.5 text-sm font-semibold text-[#090D0B] transition-colors hover:bg-[#22C55E] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cast Ballot
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Confirmation Modal */}
       {confirmModalOpen && selectedCandidate && selectedStation && (
@@ -433,7 +565,10 @@ export default function BallotClient({
             </div>
 
             <div className="mt-4 rounded-lg border border-[#1F2E26] bg-[#090D0B] p-3.5 text-sm">
-              <p className="font-semibold text-[#F3F4F6]">
+              <p className="text-xs text-[#9CA3AF]">
+                {selectedElection.title}
+              </p>
+              <p className="mt-1 font-semibold text-[#F3F4F6]">
                 {selectedCandidate.name}
               </p>
               <p className="text-xs text-[#10B981]">

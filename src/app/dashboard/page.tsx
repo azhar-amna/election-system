@@ -20,24 +20,24 @@ async function DashboardContent() {
     redirect("/admin");
   }
 
-  const [voterResult, regionsResult, activeElectionResult] = await Promise.all([
-    supabase
-      .from("voter")
-      .select("*, region(*)")
-      .eq("auth_user_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("region")
-      .select("*")
-      .order("region_name", { ascending: true }),
-    supabase
-      .from("election")
-      .select("election_id, title, start_date, end_date, status")
-      .eq("status", "ACTIVE")
-      .order("start_date", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [voterResult, regionsResult, activeElectionsResult, votedElectionsResult] =
+    await Promise.all([
+      supabase
+        .from("voter")
+        .select("*, region(*)")
+        .eq("auth_user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("region")
+        .select("*")
+        .order("region_name", { ascending: true }),
+      supabase
+        .from("election")
+        .select("election_id, title, start_date, end_date, status")
+        .eq("status", "ACTIVE")
+        .order("start_date", { ascending: false }),
+      supabase.rpc("get_my_voted_elections"),
+    ]);
 
   if (voterResult.error) {
     return (
@@ -103,11 +103,19 @@ async function DashboardContent() {
     );
   }
 
+  const votedElectionIds: number[] =
+    !votedElectionsResult.error && Array.isArray(votedElectionsResult.data)
+      ? votedElectionsResult.data.filter(
+          (id): id is number => typeof id === "number" && Number.isInteger(id)
+        )
+      : [];
+
   return (
     <VoterDashboardClient
       initialVoter={voterResult.data}
       regions={regionsResult.data ?? []}
-      activeElection={activeElectionResult.data ?? null}
+      activeElections={activeElectionsResult.data ?? []}
+      initialVotedElectionIds={votedElectionIds}
       regionsError={
         regionsResult.error
           ? sanitizePublicError(
