@@ -152,11 +152,11 @@ async function BallotContent() {
               <span>Go to Voter Dashboard</span>
             </Link>
             <Link
-              href="/results"
+              href="/"
               className="inline-flex items-center gap-2 rounded-lg border border-[#1F2E26] bg-[#161F1A] px-5 py-2.5 text-sm font-medium text-[#F3F4F6] transition-colors hover:border-[#10B981]/50 hover:text-[#22C55E]"
             >
               <BarChart3 className="h-4 w-4" aria-hidden="true" />
-              <span>View Live Results</span>
+              <span>Live Results</span>
             </Link>
           </div>
         </section>
@@ -193,11 +193,11 @@ async function BallotContent() {
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/results"
+              href="/"
               className="inline-flex items-center gap-2 rounded-lg bg-[#10B981] px-5 py-2.5 text-sm font-semibold text-[#090D0B] transition-colors hover:bg-[#22C55E]"
             >
               <BarChart3 className="h-4 w-4" aria-hidden="true" />
-              <span>View Election Results</span>
+              <span>Live Results</span>
             </Link>
             <Link
               href="/dashboard"

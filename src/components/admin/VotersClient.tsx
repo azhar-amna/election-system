@@ -16,7 +16,6 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  UserCheck,
   UserPlus,
   Vote,
   X,
@@ -542,35 +541,24 @@ export default function VotersClient({
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <span className="ems-badge-emerald inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[11px] font-semibold tracking-wider uppercase">
-            <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
-            Voter Registry &amp; Verification
-          </span>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight text-[#F3F4F6] sm:text-3xl">
-            Voter Approvals
-          </h1>
-          <p className="mt-1 text-sm text-[#9CA3AF]">
-            Inspect CNIC registrations, verify constituency profiles, approve or
-            reject pending voters, and manage voter records.
-          </p>
-        </div>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold tracking-tight text-[#F3F4F6]">
+          Voter Approvals
+        </h1>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleRefreshList}
             disabled={isRefreshing}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#1F2E26] bg-[#111814] px-3.5 py-2.5 text-xs font-medium text-[#F3F4F6] transition-colors hover:border-[#10B981]/50 hover:text-[#22C55E] disabled:opacity-60"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#1F2E26] bg-[#111814] px-3 py-2 text-xs font-medium text-[#F3F4F6] transition-colors hover:border-[#10B981]/50 hover:text-[#22C55E] disabled:opacity-60"
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
               aria-hidden="true"
             />
-            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
+            <span>Refresh</span>
           </button>
           <button
             type="button"
@@ -578,9 +566,9 @@ export default function VotersClient({
               resetAddForm();
               setAddModalOpen(true);
             }}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#10B981] px-4 py-2.5 text-sm font-semibold text-[#090D0B] transition-colors hover:bg-[#22C55E]"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#10B981] px-3.5 py-2 text-xs font-semibold text-[#090D0B] transition-colors hover:bg-[#22C55E]"
           >
-            <UserPlus className="h-4 w-4" aria-hidden="true" />
+            <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Add Voter</span>
           </button>
         </div>
@@ -1153,17 +1141,14 @@ export default function VotersClient({
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <span className="ems-badge-danger rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase">
-                  Reject Registration
-                </span>
                 <h2
                   id="reject-modal-title"
-                  className="mt-2.5 text-lg font-semibold text-[#F3F4F6]"
+                  className="text-base font-semibold text-[#F3F4F6]"
                 >
                   Reject {rejectTarget.name ?? rejectTarget.cnic}
                 </h2>
                 <p className="mt-0.5 font-mono text-xs text-[#9CA3AF]">
-                  CNIC: {rejectTarget.cnic}
+                  {rejectTarget.cnic}
                 </p>
               </div>
               <button
@@ -1370,22 +1355,12 @@ export default function VotersClient({
             className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-[#1F2E26] bg-[#111814] p-6 shadow-2xl"
           >
             <div className="flex items-start justify-between gap-3 border-b border-[#1F2E26] pb-4">
-              <div>
-                <span className="ems-badge-emerald rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase">
-                  Manual Registry Entry
-                </span>
-                <h2
-                  id="add-voter-title"
-                  className="mt-2 text-lg font-semibold text-[#F3F4F6]"
-                >
-                  Add Voter Record
-                </h2>
-                <p className="mt-0.5 text-xs text-[#9CA3AF]">
-                  Manually insert a voter into{" "}
-                  <code className="font-mono text-[#10B981]">public.voter</code>{" "}
-                  as pre-approved or pending review.
-                </p>
-              </div>
+              <h2
+                id="add-voter-title"
+                className="text-base font-semibold text-[#F3F4F6]"
+              >
+                Add Voter
+              </h2>
               <button
                 type="button"
                 onClick={() => {

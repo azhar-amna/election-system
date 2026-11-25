@@ -3,7 +3,6 @@
 :root {
   color-scheme: dark;
 
-  /* Obsidian Black & Emerald Green Design Tokens */
   --bg-obsidian: #090d0b;
   --bg-obsidian-alt: #0d1117;
   --bg-surface: #111814;
@@ -46,27 +45,20 @@
   --color-warning: var(--status-warning);
   --color-warning-bg: var(--status-warning-bg);
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Segoe UI", Inter, -apple-system, BlinkMacSystemFont, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, ui-monospace, SFMono-Regular, monospace;
 }
 
 @layer base {
   html {
     background-color: var(--bg-obsidian);
     color: var(--text-primary);
-    scroll-behavior: smooth;
   }
 
   body {
     background-color: var(--bg-obsidian);
     color: var(--text-primary);
     font-family: var(--font-sans);
-    background-image: radial-gradient(
-      ellipse 80% 45% at 50% -10%,
-      rgba(16, 185, 129, 0.08),
-      transparent 70%
-    );
-    background-repeat: no-repeat;
   }
 
   ::selection {
@@ -80,17 +72,10 @@
   }
 }
 
-/* Reusable civic surface & badge utilities */
 .ems-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem;
-}
-
-.ems-card-elevated {
-  background-color: var(--bg-surface-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem;
+  border-radius: 0.625rem;
 }
 
 .ems-badge-emerald {
@@ -111,10 +96,9 @@
   border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
-/* Custom high-contrast obsidian scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {

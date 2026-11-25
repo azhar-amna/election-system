@@ -13,6 +13,28 @@ function pickDefaultElection(elections: Election[]): Election | null {
   return elections[0] ?? null;
 }
 
+async function fetchInitialElectionData(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  electionId: number
+) {
+  const [candidatesRes, resultsRes] = await Promise.all([
+    supabase
+      .from("candidate")
+      .select(
+        "*, political_party(*), election_symbol(*), region(*), election(*)"
+      )
+      .eq("election_id", electionId)
+      .order("candidate_id", { ascending: true }),
+    supabase.from("result").select("*").eq("election_id", electionId),
+  ]);
+
+  return {
+    candidates: candidatesRes.data ?? [],
+    results: resultsRes.data ?? [],
+    error: candidatesRes.error?.message ?? resultsRes.error?.message ?? null,
+  };
+}
+
 async function ResultsContent() {
   const supabase = await createClient();
 
@@ -71,60 +93,37 @@ async function ResultsContent() {
   );
 }
 
-async function fetchInitialElectionData(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  electionId: number
-) {
-  const [candidatesRes, resultsRes] = await Promise.all([
-    supabase
-      .from("candidate")
-      .select(
-        "*, political_party(*), election_symbol(*), region(*), election(*)"
-      )
-      .eq("election_id", electionId)
-      .order("candidate_id", { ascending: true }),
-    supabase
-      .from("result")
-      .select("*")
-      .eq("election_id", electionId),
-  ]);
-
-  return {
-    candidates: candidatesRes.data ?? [],
-    results: resultsRes.data ?? [],
-    error: candidatesRes.error?.message ?? resultsRes.error?.message ?? null,
-  };
-}
-
 function ResultsSkeleton() {
   return (
     <div
       aria-label="Loading live election results"
-      className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
+      className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-8 sm:px-6"
     >
-      <div className="h-40 animate-pulse rounded-xl border border-[#1F2E26] bg-[#111814]" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="h-7 w-56 animate-pulse rounded bg-[#161F1A]" />
+        <div className="h-8 w-20 animate-pulse rounded-lg border border-[#1F2E26] bg-[#111814]" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
         {[1, 2, 3].map((n) => (
           <div
             key={n}
-            className="h-20 animate-pulse rounded-xl border border-[#1F2E26] bg-[#111814]"
+            className="h-10 animate-pulse rounded-lg border border-[#1F2E26] bg-[#111814]"
           />
         ))}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[1, 2, 3, 4].map((n) => (
-          <div
-            key={n}
-            className="h-28 animate-pulse rounded-xl border border-[#1F2E26] bg-[#111814]"
-          />
-        ))}
-      </div>
-      <div className="ems-card space-y-4 p-6">
-        <div className="h-6 w-48 animate-pulse rounded-md bg-[#161F1A]" />
+      <div className="grid grid-cols-3 gap-3">
         {[1, 2, 3].map((n) => (
           <div
             key={n}
-            className="h-28 animate-pulse rounded-xl border border-[#1F2E26] bg-[#090D0B]"
+            className="h-20 animate-pulse rounded-lg border border-[#1F2E26] bg-[#111814]"
+          />
+        ))}
+      </div>
+      <div className="ems-card space-y-3 p-4">
+        {[1, 2, 3].map((n) => (
+          <div
+            key={n}
+            className="h-20 animate-pulse rounded-lg bg-[#090D0B]"
           />
         ))}
       </div>
@@ -132,7 +131,7 @@ function ResultsSkeleton() {
   );
 }
 
-export default function ResultsPage() {
+export default function LiveResultsView() {
   return (
     <Suspense fallback={<ResultsSkeleton />}>
       <ResultsContent />

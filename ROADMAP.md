@@ -5,7 +5,7 @@
 - **Deliverables:**
   - `.env.local` configured with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
   - `src/types/database.ts` defining exact TypeScript interfaces for all PostgreSQL tables and `cast_vote` RPC parameters.
-  - `src/lib/supabase/client.ts`, `src/lib/supabase/server.ts`, and `src/middleware.ts`.
+  - `src/lib/supabase/client.ts`, `src/lib/supabase/server.ts`, and `src/proxy.ts`.
   - Obsidian Black & Emerald Green design tokens in `src/app/globals.css` and shared Navbar/Layout.
 
 ## Phase 2: Authentication & Role-Based Routing
@@ -13,7 +13,7 @@
 - **Deliverables:**
   - `/register`: Voter sign-up form with **3 fields only** (`CNIC`, `Email`, `Password`), passing `{ data: { cnic } }` to `supabase.auth.signUp`.
   - `/login`: Sign-in form supporting both Voters and Admin (checks `user.app_metadata.role === 'admin'` to redirect Admin to `/admin` and Voters to `/dashboard`).
-  - Route protection in `middleware.ts`:
+  - Route protection in `proxy.ts`:
     - Unauthenticated users visiting `/dashboard`, `/ballot`, or `/admin` -> redirect to `/login`.
     - Non-admin users visiting `/admin` -> redirect to `/dashboard`.
     - Admin users visiting `/dashboard` or `/ballot` -> redirect to `/admin`.
@@ -45,7 +45,7 @@
   - Candidate selection grid showing Candidate Name, Party Name, Region, and Election Symbol image, plus Polling Station selector (defaulting to a station in the voter's `region_id`).
   - Confirmation modal before calling `supabase.rpc('cast_vote', { p_election_id, p_candidate_id, p_station_id })`.
 
-## Phase 6: Public Live Election Results (`/results` & `/`)
+## Phase 6: Public Live Election Results (`/`)
 - **Goal:** Publicly accessible real-time election scoreboard with no login required.
 - **Deliverables:**
   - Election selector dropdown (defaults to current `ACTIVE` election, falling back to latest `CLOSED` election).

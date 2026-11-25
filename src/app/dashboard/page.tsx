@@ -88,10 +88,10 @@ async function DashboardContent() {
           </p>
           <div className="mt-6 flex justify-center">
             <Link
-              href="/results"
-              className="inline-flex items-center gap-2 rounded-lg border border-[#1F2E26] bg-[#161F1A] px-4 py-2.5 text-sm font-medium text-[#F3F4F6] transition-colors hover:border-[#10B981]/50 hover:text-[#22C55E]"
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg border border-[#1F2E26] bg-[#161F1A] px-4 py-2 text-sm font-medium text-[#F3F4F6] transition-colors hover:border-[#10B981]/50 hover:text-[#22C55E]"
             >
-              <span>View Public Live Results</span>
+              <span>Back to Results</span>
             </Link>
           </div>
         </div>

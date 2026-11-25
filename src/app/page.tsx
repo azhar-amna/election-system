@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import LiveResultsView from "@/components/results/LiveResultsView";
 
 export default function HomePage() {
-  redirect("/results");
+  return <LiveResultsView />;
 }

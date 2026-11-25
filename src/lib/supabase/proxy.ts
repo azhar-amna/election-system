@@ -44,6 +44,20 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
+  const { pathname } = request.nextUrl;
+  const isAdminRoute = matchesRoute(pathname, PROTECTED_ADMIN_ROUTES);
+  const isVoterRoute = matchesRoute(pathname, PROTECTED_VOTER_ROUTES);
+  const isAuthRoute = matchesRoute(pathname, AUTH_ROUTES);
+
+  // Skip auth round-trip for public routes when no Supabase auth cookie is present
+  const hasSupabaseAuthCookie = request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.startsWith("sb-"));
+
+  if (!isAdminRoute && !isVoterRoute && !isAuthRoute && !hasSupabaseAuthCookie) {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient<Database>(supabaseUrl, supabaseKey, {
     cookies: {
       getAll() {
@@ -69,18 +83,12 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // Always verify auth on the server via getUser() rather than trusting getSession().
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
-  const isAdminRoute = matchesRoute(pathname, PROTECTED_ADMIN_ROUTES);
-  const isVoterRoute = matchesRoute(pathname, PROTECTED_VOTER_ROUTES);
-  const isAuthRoute = matchesRoute(pathname, AUTH_ROUTES);
   const isAdmin = user?.app_metadata?.role === "admin";
 
-  // 1. Unauthenticated visitors attempting to access protected routes -> /login
   if (!user && (isAdminRoute || isVoterRoute)) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
@@ -88,7 +96,6 @@ export async function updateSession(request: NextRequest) {
     return createRedirectWithSessionCookies(loginUrl, supabaseResponse);
   }
 
-  // 2. Non-admin users attempting to access /admin -> /dashboard
   if (user && isAdminRoute && !isAdmin) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
@@ -96,7 +103,6 @@ export async function updateSession(request: NextRequest) {
     return createRedirectWithSessionCookies(dashboardUrl, supabaseResponse);
   }
 
-  // 3. Admin users attempting to access voter routes (/dashboard, /ballot) -> /admin
   if (user && isVoterRoute && isAdmin) {
     const adminUrl = request.nextUrl.clone();
     adminUrl.pathname = "/admin";
@@ -104,7 +110,6 @@ export async function updateSession(request: NextRequest) {
     return createRedirectWithSessionCookies(adminUrl, supabaseResponse);
   }
 
-  // 4. Authenticated users visiting /login or /register -> redirect to their role portal
   if (user && isAuthRoute) {
     const portalUrl = request.nextUrl.clone();
     portalUrl.pathname = isAdmin ? "/admin" : "/dashboard";

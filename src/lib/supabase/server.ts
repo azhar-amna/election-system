@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import type { Database } from "@/types/database";
 
 function getSupabaseServerConfig() {
@@ -18,6 +19,7 @@ function getSupabaseServerConfig() {
 }
 
 export async function createClient() {
+  await connection();
   const cookieStore = await cookies();
   const { supabaseUrl, supabaseKey } = getSupabaseServerConfig();
 
@@ -33,7 +35,7 @@ export async function createClient() {
           });
         } catch {
           // Called from a Server Component where mutating cookies is disallowed.
-          // Session refresh is handled by src/middleware.ts.
+          // Session refresh is handled by src/proxy.ts.
         }
       },
     },

@@ -15,7 +15,7 @@
 1. **Two User Roles Only + Public Visitors:**
    - **Admin:** Provisioned manually in Supabase Auth (`app_metadata.role === 'admin'`). There is **NO public admin sign-up** anywhere in the frontend.
    - **Voter:** Signs up publicly using **3 fields ONLY**: `cnic`, `email`, and `password`.
-   - **Public Visitor:** Can view `/results` (and `/`) without authentication.
+   - **Public Visitor:** Can view `/` (live election results) without authentication.
 2. **Voter Onboarding & Approval Gate:**
    - On sign-up (`supabase.auth.signUp`), pass `{ options: { data: { cnic } } }`. A database trigger automatically creates the `public.voter` row with `profile_completed = false` and `approval_status = 'PENDING'`.
    - After sign-up/login, the voter lands on `/dashboard` where they must **Complete Profile** (`name`, `gender`, `dob`, `phone_no`, `province`, `district`, `region_id`).
@@ -28,7 +28,7 @@
    - `public.vote` stores `encrypted_ballot` (`BYTEA`) with **no `voter_id` column**—nobody (not even Admin) can see who voted for whom.
    - Votes and turnout records are **immutable** (enforced by DB triggers). Once confirmed, a voter cannot edit, delete, or recast their vote in that election.
 4. **Supabase Client Usage:**
-   - Use `@supabase/ssr` with separate `src/lib/supabase/client.ts` (browser) and `src/lib/supabase/server.ts` (server components & server actions) plus `src/middleware.ts` for session refresh and route protection.
+   - Use `@supabase/ssr` with separate `src/lib/supabase/client.ts` (browser) and `src/lib/supabase/server.ts` (server components & server actions) plus `src/proxy.ts` for session refresh and route protection.
    - Never expose `SUPABASE_SERVICE_ROLE_KEY` in client components or `NEXT_PUBLIC_*` env vars.
 
 ## 3. Exact Database Schema Reference (Do Not Invent Columns)
@@ -49,4 +49,4 @@
 - Use TypeScript strict types matching the schema above (`src/types/database.ts`).
 - Always show clear loading skeletons, empty states, and toast/banner error handling.
 - Before calling `cast_vote`, show an explicit confirmation modal warning: *"Once submitted, your encrypted ballot is permanent and cannot be changed."*
-- Subscribe to `postgres_changes` on `public.result` in the public `/results` page so vote counts update live without page refresh.
+- Subscribe to `postgres_changes` on `public.result` on the public `/` results page so vote counts update live without page refresh.

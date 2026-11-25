@@ -13,7 +13,6 @@ import {
   Plus,
   Search,
   Trash2,
-  Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type {
@@ -226,26 +225,13 @@ export default function CandidatesClient({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <span className="ems-badge-emerald inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[11px] font-semibold tracking-wider uppercase">
-            <Users className="h-3.5 w-3.5" aria-hidden="true" />
-            Candidate Roster
-          </span>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight text-[#F3F4F6] sm:text-3xl">
-            Manage Candidates
-          </h1>
-          <p className="mt-1 text-sm text-[#9CA3AF]">
-            Add and remove ballot candidates, linking each candidate to their
-            election, constituency, political party, and election symbol.
-          </p>
-        </div>
-
-        <span className="self-start rounded-lg border border-[#1F2E26] bg-[#111814] px-3.5 py-2 font-mono text-xs text-[#F3F4F6] sm:self-auto">
-          {candidates.length} Registered{" "}
-          {candidates.length === 1 ? "Candidate" : "Candidates"}
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold tracking-tight text-[#F3F4F6]">
+          Candidates
+        </h1>
+        <span className="font-mono text-xs text-[#9CA3AF]">
+          {candidates.length} total
         </span>
       </div>
 
@@ -319,16 +305,10 @@ export default function CandidatesClient({
       )}
 
       {/* Add Candidate Form */}
-      <section aria-label="Add New Candidate" className="ems-card p-6">
-        <div className="border-b border-[#1F2E26] pb-4">
-          <h2 className="text-base font-semibold text-[#F3F4F6]">
-            Add Candidate to Ballot
-          </h2>
-          <p className="mt-0.5 text-xs text-[#9CA3AF]">
-            Assign candidate personal details, political party, symbol, region,
-            and target election.
-          </p>
-        </div>
+      <section aria-label="Add New Candidate" className="ems-card p-5">
+        <h2 className="border-b border-[#1F2E26] pb-3 text-sm font-semibold text-[#F3F4F6]">
+          Add Candidate
+        </h2>
 
         <form
           onSubmit={handleAddCandidate}

@@ -682,21 +682,10 @@ export default function ElectionsSetupClient({
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      {/* Page Header */}
-      <div>
-        <span className="ems-badge-emerald inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[11px] font-semibold tracking-wider uppercase">
-          <Radio className="h-3.5 w-3.5" aria-hidden="true" />
-          Elections &amp; Setup
-        </span>
-        <h1 className="mt-3 text-2xl font-bold tracking-tight text-[#F3F4F6] sm:text-3xl">
-          Election Configuration &amp; Entities
-        </h1>
-        <p className="mt-1 text-sm text-[#9CA3AF]">
-          Create elections, control voting lifecycle status, and manage regions,
-          polling stations, political parties, and ballot symbols.
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+      <h1 className="text-xl font-semibold tracking-tight text-[#F3F4F6]">
+        Elections &amp; Setup
+      </h1>
 
       {/* Feedback Banners */}
       {successMessage && (
