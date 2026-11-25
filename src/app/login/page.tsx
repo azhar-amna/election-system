@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { isValidEmail } from "@/lib/validation";
 
 function getSafeRedirectPath(
   nextParam: string | null,
@@ -42,8 +43,8 @@ function LoginForm() {
     setErrorMessage(null);
 
     const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail || !password) {
-      setErrorMessage("Enter email and password.");
+    if (!isValidEmail(normalizedEmail) || !password || password.length > 128) {
+      setErrorMessage("Enter a valid email and password.");
       return;
     }
 

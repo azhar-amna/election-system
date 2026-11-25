@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { parsePositiveInt, sanitizePublicError } from "@/lib/validation";
 import type {
   CandidateWithRelations,
   Election,
@@ -111,15 +112,25 @@ export default function BallotClient({
       return;
     }
 
+    const electionId = parsePositiveInt(activeElection.election_id);
+    const candidateId = parsePositiveInt(selectedCandidate.candidate_id);
+    const stationId = parsePositiveInt(selectedStation.station_id);
+
+    if (electionId === null || candidateId === null || stationId === null) {
+      setErrorMessage("Invalid ballot selection.");
+      setConfirmModalOpen(false);
+      return;
+    }
+
     setErrorMessage(null);
     setIsCasting(true);
 
     try {
       const supabase = createClient();
       const { error } = await supabase.rpc("cast_vote", {
-        p_election_id: activeElection.election_id,
-        p_candidate_id: selectedCandidate.candidate_id,
-        p_station_id: selectedStation.station_id,
+        p_election_id: electionId,
+        p_candidate_id: candidateId,
+        p_station_id: stationId,
       });
 
       if (error) {
@@ -135,7 +146,9 @@ export default function BallotClient({
           router.refresh();
           return;
         }
-        setErrorMessage(error.message);
+        setErrorMessage(
+          sanitizePublicError(error, "Unable to submit ballot. Please try again.")
+        );
         setConfirmModalOpen(false);
         return;
       }

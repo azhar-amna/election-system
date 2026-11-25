@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { parsePositiveInt } from "@/lib/validation";
 import type {
   CandidateWithRelations,
   Election,
@@ -127,21 +128,34 @@ export default function CandidatesClient({
     setSuccessMessage(null);
 
     const trimmedName = name.trim();
-    const parsedElectionId = Number(electionId);
-    const parsedRegionId = Number(regionId);
-    const parsedPartyId = partyId ? Number(partyId) : null;
-    const parsedSymbolId = symbolId ? Number(symbolId) : null;
+    const trimmedReligion = religion.trim();
+    const parsedElectionId = parsePositiveInt(electionId);
+    const parsedRegionId = parsePositiveInt(regionId);
+    const parsedPartyId = partyId ? parsePositiveInt(partyId) : null;
+    const parsedSymbolId = symbolId ? parsePositiveInt(symbolId) : null;
 
-    if (!trimmedName) {
-      setErrorMessage("Please enter the candidate's full name.");
+    if (!trimmedName || trimmedName.length > 120) {
+      setErrorMessage("Enter a valid candidate name (max 120 characters).");
       return;
     }
-    if (!electionId || !Number.isInteger(parsedElectionId)) {
+    if (trimmedReligion.length > 60) {
+      setErrorMessage("Religion must be 60 characters or fewer.");
+      return;
+    }
+    if (parsedElectionId === null) {
       setErrorMessage("Please select an election.");
       return;
     }
-    if (!regionId || !Number.isInteger(parsedRegionId)) {
+    if (parsedRegionId === null) {
       setErrorMessage("Please select an electoral region.");
+      return;
+    }
+    if (partyId && parsedPartyId === null) {
+      setErrorMessage("Invalid political party selected.");
+      return;
+    }
+    if (symbolId && parsedSymbolId === null) {
+      setErrorMessage("Invalid election symbol selected.");
       return;
     }
 

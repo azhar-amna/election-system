@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertCircle, ArrowLeft, ShieldAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizePublicError } from "@/lib/validation";
 import VoterDashboardClient from "@/components/dashboard/VoterDashboardClient";
 
 async function DashboardContent() {
@@ -55,7 +56,10 @@ async function DashboardContent() {
                 Unable to Load Voter Profile
               </h1>
               <p className="text-sm text-[#EF4444]">
-                {voterResult.error.message}
+                {sanitizePublicError(
+                  voterResult.error,
+                  "Unable to load your voter profile."
+                )}
               </p>
               <Link
                 href="/"
@@ -104,7 +108,14 @@ async function DashboardContent() {
       initialVoter={voterResult.data}
       regions={regionsResult.data ?? []}
       activeElection={activeElectionResult.data ?? null}
-      regionsError={regionsResult.error?.message ?? null}
+      regionsError={
+        regionsResult.error
+          ? sanitizePublicError(
+              regionsResult.error,
+              "Unable to load electoral regions."
+            )
+          : null
+      }
     />
   );
 }

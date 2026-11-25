@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizePublicError } from "@/lib/validation";
 import LiveResultsClient from "@/components/results/LiveResultsClient";
 import type { Election } from "@/types/database";
 
@@ -31,7 +32,7 @@ async function fetchInitialElectionData(
   return {
     candidates: candidatesRes.data ?? [],
     results: resultsRes.data ?? [],
-    error: candidatesRes.error?.message ?? resultsRes.error?.message ?? null,
+    error: candidatesRes.error ?? resultsRes.error ?? null,
   };
 }
 
@@ -62,7 +63,7 @@ async function ResultsContent() {
   let initialResults = [] as Awaited<
     ReturnType<typeof fetchInitialElectionData>
   >["results"];
-  let detailError: string | null = null;
+  let detailError: { code?: string; message?: string } | null = null;
 
   if (defaultElection) {
     const detail = await fetchInitialElectionData(
@@ -74,11 +75,15 @@ async function ResultsContent() {
     detailError = detail.error;
   }
 
-  const firstError =
-    electionsRes.error?.message ??
-    regionsRes.error?.message ??
-    stationsRes.error?.message ??
+  const rawError =
+    electionsRes.error ??
+    regionsRes.error ??
+    stationsRes.error ??
     detailError;
+
+  const firstError = rawError
+    ? sanitizePublicError(rawError, "Unable to load live election results.")
+    : null;
 
   return (
     <LiveResultsClient

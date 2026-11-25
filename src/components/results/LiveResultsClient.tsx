@@ -9,6 +9,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { parsePositiveInt, sanitizePublicError } from "@/lib/validation";
 import type {
   CandidateWithRelations,
   Election,
@@ -96,9 +97,10 @@ export default function LiveResultsClient({
 
       if (candidatesRes.error || resultsRes.error) {
         setErrorMessage(
-          candidatesRes.error?.message ??
-            resultsRes.error?.message ??
+          sanitizePublicError(
+            candidatesRes.error ?? resultsRes.error,
             "Unable to fetch results."
+          )
         );
         return;
       }
@@ -114,8 +116,8 @@ export default function LiveResultsClient({
   }
 
   function handleElectionChange(nextIdRaw: string) {
-    const nextId = Number(nextIdRaw);
-    if (!Number.isInteger(nextId)) return;
+    const nextId = parsePositiveInt(nextIdRaw);
+    if (nextId === null) return;
     setSelectedElectionId(nextId);
     setSelectedRegionId("ALL");
     setSelectedStationId("ALL");
@@ -124,19 +126,20 @@ export default function LiveResultsClient({
   }
 
   useEffect(() => {
-    if (!selectedElectionId) return;
+    const validElectionId = parsePositiveInt(selectedElectionId);
+    if (validElectionId === null) return;
 
     const supabase = createClient();
 
     const channel = supabase
-      .channel(`ems-public-results-${selectedElectionId}`)
+      .channel(`ems-public-results-${validElectionId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "result",
-          filter: `election_id=eq.${selectedElectionId}`,
+          filter: `election_id=eq.${validElectionId}`,
         },
         (payload) => {
           if (

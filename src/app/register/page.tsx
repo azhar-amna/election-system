@@ -5,15 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-
-const CNIC_PATTERN = /^\d{5}-\d{7}-\d$/;
-
-function formatCnic(input: string): string {
-  const digits = input.replace(/\D/g, "").slice(0, 13);
-  if (digits.length <= 5) return digits;
-  if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
-  return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
-}
+import { formatCnic, isValidCnic, isValidEmail } from "@/lib/validation";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -36,18 +28,18 @@ export default function RegisterPage() {
     const normalizedCnic = formatCnic(cnic.trim());
     const normalizedEmail = email.trim().toLowerCase();
 
-    if (!CNIC_PATTERN.test(normalizedCnic)) {
+    if (!isValidCnic(normalizedCnic)) {
       setErrorMessage("CNIC must match 12345-1234567-1.");
       return;
     }
 
-    if (!normalizedEmail) {
-      setErrorMessage("Enter a valid email.");
+    if (!isValidEmail(normalizedEmail)) {
+      setErrorMessage("Enter a valid email address.");
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMessage("Password must be at least 6 characters.");
+    if (password.length < 6 || password.length > 128) {
+      setErrorMessage("Password must be between 6 and 128 characters.");
       return;
     }
 

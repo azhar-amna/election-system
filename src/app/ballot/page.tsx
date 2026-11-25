@@ -10,6 +10,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizePublicError } from "@/lib/validation";
 import BallotClient from "@/components/ballot/BallotClient";
 
 async function BallotContent() {
@@ -42,10 +43,10 @@ async function BallotContent() {
   ]);
 
   if (voterRes.error || activeElectionRes.error) {
-    const errMsg =
-      voterRes.error?.message ??
-      activeElectionRes.error?.message ??
-      "Failed to load ballot eligibility.";
+    const errMsg = sanitizePublicError(
+      voterRes.error ?? activeElectionRes.error,
+      "Failed to load ballot eligibility."
+    );
     return (
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-12 sm:px-6">
         <div
@@ -228,10 +229,10 @@ async function BallotContent() {
   ]);
 
   if (candidatesRes.error || stationsRes.error) {
-    const errMsg =
-      candidatesRes.error?.message ??
-      stationsRes.error?.message ??
-      "Unable to load candidates or polling stations.";
+    const errMsg = sanitizePublicError(
+      candidatesRes.error ?? stationsRes.error,
+      "Unable to load candidates or polling stations."
+    );
     return (
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-12 sm:px-6">
         <div

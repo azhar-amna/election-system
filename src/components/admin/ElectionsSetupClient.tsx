@@ -18,6 +18,12 @@ import {
   Upload,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  ALLOWED_SYMBOL_ACCEPT,
+  getAllowedSymbolExtension,
+  isValidIsoDate,
+  parsePositiveInt,
+} from "@/lib/validation";
 import type {
   Election,
   ElectionStatus,
@@ -160,8 +166,8 @@ export default function ElectionsSetupClient({
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      setErrorMessage("Please select a valid image file (PNG, JPG, WebP, SVG).");
+    if (!getAllowedSymbolExtension(file.type)) {
+      setErrorMessage("Please select a PNG, JPG, or WebP image file.");
       setSymbolFile(null);
       event.target.value = "";
       return;
@@ -187,8 +193,12 @@ export default function ElectionsSetupClient({
     clearFeedback();
 
     const title = electionTitle.trim();
-    if (!title || !electionStartDate || !electionEndDate) {
-      setErrorMessage("Please provide an election title, start date, and end date.");
+    if (!title || title.length > 150) {
+      setErrorMessage("Enter a valid election title (1–150 characters).");
+      return;
+    }
+    if (!isValidIsoDate(electionStartDate) || !isValidIsoDate(electionEndDate)) {
+      setErrorMessage("Provide valid start and end dates.");
       return;
     }
 
@@ -280,8 +290,14 @@ export default function ElectionsSetupClient({
     clearFeedback();
 
     const trimmedName = regionName.trim();
-    if (!trimmedName) {
-      setErrorMessage("Please enter a region name.");
+    const trimmedLocation = regionLocation.trim();
+    const trimmedType = regionType.trim();
+    if (!trimmedName || trimmedName.length > 120) {
+      setErrorMessage("Enter a valid region name (1–120 characters).");
+      return;
+    }
+    if (trimmedLocation.length > 200 || trimmedType.length > 80) {
+      setErrorMessage("Region location or type exceeds maximum length.");
       return;
     }
 
@@ -363,14 +379,19 @@ export default function ElectionsSetupClient({
     clearFeedback();
 
     const trimmedName = stationName.trim();
-    const parsedRegionId = Number(stationRegionId);
+    const trimmedLocation = stationLocation.trim();
+    const parsedRegionId = parsePositiveInt(stationRegionId);
 
-    if (!trimmedName) {
-      setErrorMessage("Please enter a polling station name.");
+    if (!trimmedName || trimmedName.length > 150) {
+      setErrorMessage("Enter a valid polling station name (1–150 characters).");
       return;
     }
-    if (!stationRegionId || !Number.isInteger(parsedRegionId)) {
-      setErrorMessage("Please assign a region to the polling station.");
+    if (trimmedLocation.length > 200) {
+      setErrorMessage("Polling station location must be 200 characters or fewer.");
+      return;
+    }
+    if (parsedRegionId === null) {
+      setErrorMessage("Please assign a valid region to the polling station.");
       return;
     }
 
@@ -450,8 +471,13 @@ export default function ElectionsSetupClient({
     clearFeedback();
 
     const trimmedName = partyName.trim();
-    if (!trimmedName) {
-      setErrorMessage("Please enter a political party name.");
+    const trimmedLeader = partyLeader.trim();
+    if (!trimmedName || trimmedName.length > 120) {
+      setErrorMessage("Enter a valid political party name (1–120 characters).");
+      return;
+    }
+    if (trimmedLeader.length > 120) {
+      setErrorMessage("Party leader name must be 120 characters or fewer.");
       return;
     }
 
@@ -531,12 +557,23 @@ export default function ElectionsSetupClient({
     clearFeedback();
 
     const trimmedName = symbolName.trim();
-    if (!trimmedName) {
-      setErrorMessage("Please enter an election symbol name.");
+    if (!trimmedName || trimmedName.length > 100) {
+      setErrorMessage("Enter a valid election symbol name (1–100 characters).");
       return;
     }
     if (!symbolFile) {
       setErrorMessage("Please select an image file to upload for this symbol.");
+      return;
+    }
+
+    const extension = getAllowedSymbolExtension(symbolFile.type);
+    if (!extension) {
+      setErrorMessage("Only PNG, JPG, and WebP symbol images are permitted.");
+      return;
+    }
+
+    if (symbolFile.size > MAX_SYMBOL_SIZE_BYTES) {
+      setErrorMessage("Symbol image must be 5 MB or smaller.");
       return;
     }
 
@@ -545,9 +582,6 @@ export default function ElectionsSetupClient({
     try {
       const supabase = createClient();
 
-      const extension =
-        symbolFile.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
-        "png";
       const safeSlug = trimmedName
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
@@ -560,7 +594,7 @@ export default function ElectionsSetupClient({
         .upload(uniquePath, symbolFile, {
           cacheControl: "3600",
           upsert: false,
-          contentType: symbolFile.type || undefined,
+          contentType: symbolFile.type,
         });
 
       if (uploadError) {
@@ -1649,13 +1683,13 @@ export default function ElectionsSetupClient({
                       : "Click to choose symbol image"}
                   </span>
                   <span className="text-[11px] text-[#6B7280]">
-                    PNG, JPG, WebP, or SVG &bull; Max 5 MB
+                    PNG, JPG, or WebP &bull; Max 5 MB
                   </span>
                   <input
                     ref={fileInputRef}
                     id="symbol-file"
                     type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+                    accept={ALLOWED_SYMBOL_ACCEPT}
                     onChange={handleSymbolFileChange}
                     className="sr-only"
                   />

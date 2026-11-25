@@ -22,6 +22,14 @@ import {
   XCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  formatCnic,
+  isValidCnic,
+  isValidEmail,
+  isValidPastDate,
+  isValidPhone,
+  parsePositiveInt,
+} from "@/lib/validation";
 import type {
   ApprovalStatus,
   Region,
@@ -36,8 +44,6 @@ interface VotersClientProps {
   regions: Region[];
   loadError?: string | null;
 }
-
-const CNIC_PATTERN = /^\d{5}-\d{7}-\d$/;
 
 const GENDER_OPTIONS = ["Male", "Female", "Other"] as const;
 
@@ -57,13 +63,6 @@ const QUICK_REJECTION_REASONS = [
   "Date of birth or phone number could not be verified.",
   "Incomplete or inconsistent voter profile information.",
 ] as const;
-
-function formatCnic(input: string): string {
-  const digits = input.replace(/\D/g, "").slice(0, 13);
-  if (digits.length <= 5) return digits;
-  if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
-  return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
-}
 
 function formatDisplayDate(value: string | null): string {
   if (!value) return "Not provided";
@@ -340,8 +339,8 @@ export default function VotersClient({
     if (!rejectTarget) return;
 
     const trimmedReason = rejectionReason.trim();
-    if (!trimmedReason) {
-      setModalError("Please enter a clear rejection reason for the voter.");
+    if (!trimmedReason || trimmedReason.length > 500) {
+      setModalError("Enter a rejection reason (1–500 characters).");
       return;
     }
 
@@ -410,16 +409,20 @@ export default function VotersClient({
     const normalizedCnic = formatCnic(newCnic.trim());
     const normalizedEmail = newEmail.trim().toLowerCase();
     const trimmedName = newName.trim();
+    const trimmedPhone = newPhone.trim();
+    const trimmedDob = newDob.trim();
+    const trimmedProvince = newProvince.trim();
+    const trimmedDistrict = newDistrict.trim();
 
-    if (!CNIC_PATTERN.test(normalizedCnic)) {
+    if (!isValidCnic(normalizedCnic)) {
       setModalError(
         "Enter a valid 13-digit CNIC formatted as 12345-1234567-1."
       );
       return;
     }
 
-    if (!normalizedEmail) {
-      setModalError("Please provide an email address.");
+    if (!isValidEmail(normalizedEmail)) {
+      setModalError("Please provide a valid email address.");
       return;
     }
 
@@ -428,7 +431,31 @@ export default function VotersClient({
       return;
     }
 
-    const parsedRegionId = newRegionId ? Number(newRegionId) : null;
+    if (
+      trimmedName.length > 120 ||
+      trimmedProvince.length > 80 ||
+      trimmedDistrict.length > 80
+    ) {
+      setModalError("One or more text fields exceed the maximum length.");
+      return;
+    }
+
+    if (trimmedDob && !isValidPastDate(trimmedDob)) {
+      setModalError("Enter a valid date of birth in the past.");
+      return;
+    }
+
+    if (trimmedPhone && !isValidPhone(trimmedPhone)) {
+      setModalError("Enter a valid phone number.");
+      return;
+    }
+
+    const parsedRegionId = newRegionId ? parsePositiveInt(newRegionId) : null;
+    if (newRegionId && parsedRegionId === null) {
+      setModalError("Invalid electoral region selected.");
+      return;
+    }
+
     const isPreApproved = newApprovalStatus === "APPROVED";
 
     setBusyAction("add-voter");

@@ -15,6 +15,12 @@ import {
   XCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  isValidPastDate,
+  isValidPhone,
+  parsePositiveInt,
+  sanitizePublicError,
+} from "@/lib/validation";
 import type { Election, Region, VoterWithRegion } from "@/types/database";
 
 interface VoterDashboardClientProps {
@@ -116,7 +122,7 @@ export default function VoterDashboardClient({
         .single();
 
       if (error) {
-        setFormError(error.message);
+        setFormError(sanitizePublicError(error, "Unable to refresh status."));
         return;
       }
 
@@ -150,7 +156,7 @@ export default function VoterDashboardClient({
     const trimmedPhone = phoneNo.trim();
     const trimmedProvince = province.trim();
     const trimmedDistrict = district.trim();
-    const parsedRegionId = Number(regionId);
+    const parsedRegionId = parsePositiveInt(regionId);
 
     if (
       !trimmedName ||
@@ -159,17 +165,28 @@ export default function VoterDashboardClient({
       !trimmedPhone ||
       !trimmedProvince ||
       !trimmedDistrict ||
-      !regionId ||
-      !Number.isInteger(parsedRegionId) ||
-      parsedRegionId <= 0
+      parsedRegionId === null
     ) {
       setFormError("All profile fields are required.");
       return;
     }
 
-    const dobDate = new Date(trimmedDob);
-    if (Number.isNaN(dobDate.getTime()) || dobDate > new Date()) {
+    if (
+      trimmedName.length > 120 ||
+      trimmedProvince.length > 80 ||
+      trimmedDistrict.length > 80
+    ) {
+      setFormError("One or more fields exceed the maximum allowed length.");
+      return;
+    }
+
+    if (!isValidPastDate(trimmedDob)) {
       setFormError("Enter a valid date of birth.");
+      return;
+    }
+
+    if (!isValidPhone(trimmedPhone)) {
+      setFormError("Enter a valid phone number.");
       return;
     }
 
@@ -204,7 +221,7 @@ export default function VoterDashboardClient({
         .single();
 
       if (error) {
-        setFormError(error.message);
+        setFormError(sanitizePublicError(error, "Unable to save profile."));
         return;
       }
 
